@@ -1,0 +1,88 @@
+name: 🔍 Patient Lookup Request
+description: Request to search and retrieve patient information from FHIR API
+title: "[PATIENT LOOKUP]: "
+labels: ["patient-lookup", "automation"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Patient Search Request
+        Fill out the form below to search for patient records. The system will automatically query the FHIR API and return results.
+        
+        **Note:** All fields are optional. Provide as many details as possible for accurate results.
+
+  - type: input
+    id: patient-name
+    attributes:
+      label: Patient Name
+      description: Full name or partial name of the patient
+      placeholder: "e.g., John Doe"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: gender
+    attributes:
+      label: Gender
+      description: Select patient gender
+      options:
+        - Any
+        - male
+        - female
+        - other
+      default: 0
+    validations:
+      required: false
+
+  - type: input
+    id: identifier
+    attributes:
+      label: Patient Identifier
+      description: Patient ID or medical record number
+      placeholder: "e.g., P12345"
+    validations:
+      required: false
+
+  - type: input
+    id: birth-date
+    attributes:
+      label: Birth Date
+      description: Patient's date of birth (YYYY-MM-DD format)
+      placeholder: "e.g., 1990-01-15"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: active-status
+    attributes:
+      label: Active Status
+      description: Filter by active/inactive patients
+      options:
+        - Any
+        - active
+        - inactive
+      default: 0
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-notes
+    attributes:
+      label: Additional Search Criteria
+      description: Any additional information that might help narrow down the search
+      placeholder: "e.g., Known conditions, last visit date, etc."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Acknowledgment
+      description: Please confirm you understand the following
+      options:
+        - label: I confirm that I am authorized to access patient information
+          required: true
+        - label: I understand this is for authorized use only and will comply with privacy policies
+          required: true

@@ -1,0 +1,258 @@
+name: Patient Lookup Automation
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  patient-lookup:
+    # Only run if the issue has the 'patient-lookup' label
+    if: contains(github.event.issue.labels.*.name, 'patient-lookup')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Parse issue form
+        id: parse-issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueBody = context.payload.issue.body || '';
+            console.log('Issue body:', issueBody);
+            
+            // Parse the issue form fields
+            const parseField = (fieldName) => {
+              const regex = new RegExp(`###\\s*${fieldName}\\s*\\n\\s*(.+?)(?=\\n###|\\n\\n|$)`, 'is');
+              const match = issueBody.match(regex);
+              const value = match ? match[1].trim() : '';
+              return value === '_No response_' || value === 'Any' ? '' : value;
+            };
+            
+            const patientName = parseField('Patient Name');
+            const gender = parseField('Gender');
+            const identifier = parseField('Patient Identifier');
+            const birthDate = parseField('Birth Date');
+            const activeStatus = parseField('Active Status');
+            
+            core.setOutput('patient-name', patientName);
+            core.setOutput('gender', gender.toLowerCase());
+            core.setOutput('identifier', identifier);
+            core.setOutput('birth-date', birthDate);
+            core.setOutput('active-status', activeStatus.toLowerCase());
+            
+            console.log('Parsed values:');
+            console.log('Name:', patientName);
+            console.log('Gender:', gender);
+            console.log('Identifier:', identifier);
+
+      - name: Comment - Processing started
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🔄 **Processing your patient lookup request...**\n\nStarting Docker containers and authenticating with FHIR API.'
+            });
+
+      - name: Start Docker Compose
+        run: |
+          docker-compose up -d
+          echo "Waiting for services to be ready..."
+
+      - name: Wait for MySQL to be ready
+        run: |
+          echo "Waiting for MySQL..."
+          timeout 60 bash -c 'until docker exec fhir-mysql mysqladmin ping -h localhost --silent; do sleep 2; done'
+          echo "MySQL is ready!"
+
+      - name: Wait for API to be ready
+        run: |
+          echo "Waiting for FHIR API..."
+          for i in {1..30}; do
+            if curl -f http://localhost:9090/actuator/health 2>/dev/null; then
+              echo "API is ready!"
+              exit 0
+            fi
+            echo "Attempt $i: API not ready yet, waiting..."
+            sleep 3
+          done
+          echo "API failed to start in time"
+          docker-compose logs fhir-api
+          exit 1
+
+      - name: Check if user exists, create if not
+        id: auth-setup
+        run: |
+          echo "Checking if test user exists..."
+          
+          # Try to login first
+          LOGIN_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST http://localhost:9090/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "${{ secrets.FHIR_API_USERNAME }}",
+              "password": "${{ secrets.FHIR_API_PASSWORD }}"
+            }')
+          
+          HTTP_CODE=$(echo "$LOGIN_RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$LOGIN_RESPONSE" | head -n-1)
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "User exists and login successful"
+            JWT=$(echo "$RESPONSE_BODY" | jq -r '.token')
+            echo "jwt=$JWT" >> $GITHUB_OUTPUT
+          else
+            echo "User doesn't exist, creating..."
+            SIGNUP_RESPONSE=$(curl -s -X POST http://localhost:9090/auth/signup \
+              -H "Content-Type: application/json" \
+              -d '{
+                "username": "${{ secrets.FHIR_API_USERNAME }}",
+                "password": "${{ secrets.FHIR_API_PASSWORD }}",
+                "email": "automation@fhir.local"
+              }')
+            
+            echo "Signup response: $SIGNUP_RESPONSE"
+            
+            # Login after signup
+            LOGIN_RESPONSE=$(curl -s -X POST http://localhost:9090/auth/login \
+              -H "Content-Type: application/json" \
+              -d '{
+                "username": "${{ secrets.FHIR_API_USERNAME }}",
+                "password": "${{ secrets.FHIR_API_PASSWORD }}"
+              }')
+            
+            JWT=$(echo "$LOGIN_RESPONSE" | jq -r '.token')
+            echo "jwt=$JWT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Query Patient API
+        id: query-patients
+        run: |
+          # Build query parameters
+          PARAMS=""
+          
+          if [ -n "${{ steps.parse-issue.outputs.patient-name }}" ]; then
+            PARAMS="${PARAMS}&name=${{ steps.parse-issue.outputs.patient-name }}"
+          fi
+          
+          if [ -n "${{ steps.parse-issue.outputs.gender }}" ]; then
+            PARAMS="${PARAMS}&gender=${{ steps.parse-issue.outputs.gender }}"
+          fi
+          
+          if [ -n "${{ steps.parse-issue.outputs.identifier }}" ]; then
+            PARAMS="${PARAMS}&identifier=${{ steps.parse-issue.outputs.identifier }}"
+          fi
+          
+          if [ -n "${{ steps.parse-issue.outputs.birth-date }}" ]; then
+            PARAMS="${PARAMS}&birthDate=${{ steps.parse-issue.outputs.birth-date }}"
+          fi
+          
+          # Remove leading &
+          PARAMS=$(echo "$PARAMS" | sed 's/^&//')
+          
+          if [ -z "$PARAMS" ]; then
+            QUERY_URL="http://localhost:9090/api/patients"
+          else
+            QUERY_URL="http://localhost:9090/api/patients?${PARAMS}"
+          fi
+          
+          echo "Query URL: $QUERY_URL"
+          
+          # Query the API
+          RESPONSE=$(curl -s -X GET "$QUERY_URL" \
+            -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
+            -H "Accept: application/json")
+          
+          echo "API Response: $RESPONSE"
+          
+          # Save response to file for parsing
+          echo "$RESPONSE" > /tmp/patient-response.json
+          
+          # Count results
+          TOTAL=$(echo "$RESPONSE" | jq '.total // 0')
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+      - name: Format and comment results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const response = JSON.parse(fs.readFileSync('/tmp/patient-response.json', 'utf8'));
+            
+            const total = response.total || 0;
+            const patients = response.entry || [];
+            
+            let comment = '## 🔍 Patient Lookup Results\n\n';
+            comment += `**Total Results Found:** ${total}\n\n`;
+            
+            if (total === 0) {
+              comment += '❌ No patients found matching the search criteria.\n\n';
+              comment += '### Search Parameters Used:\n';
+              comment += `- **Name:** ${context.payload.issue.body.match(/### Patient Name\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
+              comment += `- **Gender:** ${context.payload.issue.body.match(/### Gender\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
+              comment += `- **Identifier:** ${context.payload.issue.body.match(/### Patient Identifier\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
+            } else {
+              comment += '✅ Found matching patient(s):\n\n';
+              
+              patients.forEach((entry, index) => {
+                const patient = entry.resource;
+                const name = patient.name?.[0] || {};
+                const fullName = `${name.given?.join(' ') || ''} ${name.family || ''}`.trim();
+                
+                comment += `### Patient ${index + 1}\n`;
+                comment += '```json\n';
+                comment += JSON.stringify(patient, null, 2);
+                comment += '\n```\n\n';
+                comment += `- **ID:** ${patient.id}\n`;
+                comment += `- **Name:** ${fullName || 'N/A'}\n`;
+                comment += `- **Gender:** ${patient.gender || 'N/A'}\n`;
+                comment += `- **Birth Date:** ${patient.birthDate || 'N/A'}\n`;
+                comment += `- **Active:** ${patient.active ? '✓' : '✗'}\n\n`;
+                
+                if (index < patients.length - 1) {
+                  comment += '---\n\n';
+                }
+              });
+            }
+            
+            comment += '\n---\n*This lookup was performed automatically by the FHIR API Patient Lookup workflow.*';
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+            
+            // Close the issue
+            await github.rest.issues.update({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              labels: ['patient-lookup', 'completed']
+            });
+
+      - name: Cleanup - Stop Docker Compose
+        if: always()
+        run: |
+          docker-compose logs fhir-api
+          docker-compose down -v
+
+      - name: Comment on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ **Patient lookup failed**\n\nThere was an error processing your request. Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.'
+            });
