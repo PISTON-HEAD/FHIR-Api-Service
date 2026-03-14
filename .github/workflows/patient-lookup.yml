@@ -63,6 +63,7 @@ jobs:
 
       - name: Start Docker Compose
         run: |
+          cd api
           docker-compose up -d
           echo "Waiting for services to be ready..."
 
@@ -134,49 +135,58 @@ jobs:
       - name: Query Patient API
         id: query-patients
         run: |
-          # Build query parameters
-          PARAMS=""
+          # Build GraphQL query based on inputs
+          PATIENT_NAME="${{ steps.parse-issue.outputs.patient-name }}"
+          GENDER="${{ steps.parse-issue.outputs.gender }}"
+          IDENTIFIER="${{ steps.parse-issue.outputs.identifier }}"
           
-          if [ -n "${{ steps.parse-issue.outputs.patient-name }}" ]; then
-            PARAMS="${PARAMS}&name=${{ steps.parse-issue.outputs.patient-name }}"
-          fi
-          
-          if [ -n "${{ steps.parse-issue.outputs.gender }}" ]; then
-            PARAMS="${PARAMS}&gender=${{ steps.parse-issue.outputs.gender }}"
-          fi
-          
-          if [ -n "${{ steps.parse-issue.outputs.identifier }}" ]; then
-            PARAMS="${PARAMS}&identifier=${{ steps.parse-issue.outputs.identifier }}"
-          fi
-          
-          if [ -n "${{ steps.parse-issue.outputs.birth-date }}" ]; then
-            PARAMS="${PARAMS}&birthDate=${{ steps.parse-issue.outputs.birth-date }}"
-          fi
-          
-          # Remove leading &
-          PARAMS=$(echo "$PARAMS" | sed 's/^&//')
-          
-          if [ -z "$PARAMS" ]; then
-            QUERY_URL="http://localhost:9090/api/patients"
+          # Determine which query to use
+          if [ -n "$IDENTIFIER" ]; then
+            # Query by identifier
+            GRAPHQL_QUERY="{\"query\":\"{ patient(identifier: \\\"$IDENTIFIER\\\") { id firstName lastName gender dateOfBirth identifiers { type value system } fhirResource } }\"}"
+            RESPONSE=$(curl -s -X POST "http://localhost:9090/graphql/fhirapi/patient" \
+              -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
+              -H "Content-Type: application/json" \
+              -d "$GRAPHQL_QUERY")
+            
+            # Check if patient was found
+            if echo "$RESPONSE" | jq -e '.data.patient.id' > /dev/null 2>&1; then
+              # Convert single patient to array format
+              echo "$RESPONSE" | jq '{data: {patients: {total: 1, patients: [.data.patient]}}}' > /tmp/patient-response.json
+            else
+              echo '{"data":{"patients":{"total":0,"patients":[]}}}' > /tmp/patient-response.json
+            fi
+          elif [ -n "$GENDER" ]; then
+            # Query by gender
+            GRAPHQL_QUERY="{\"query\":\"{ patientsByGender(gender: \\\"$GENDER\\\") { total patients { id firstName lastName gender dateOfBirth identifiers { type value system } } } }\"}"
+            RESPONSE=$(curl -s -X POST "http://localhost:9090/graphql/fhirapi/patient" \
+              -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
+              -H "Content-Type: application/json" \
+              -d "$GRAPHQL_QUERY")
+            echo "$RESPONSE" | jq '{data: {patients: .data.patientsByGender}}' > /tmp/patient-response.json
+          elif [ -n "$PATIENT_NAME" ]; then
+            # Query by last name (extract last word as last name)
+            LAST_NAME=$(echo "$PATIENT_NAME" | awk '{print $NF}')
+            GRAPHQL_QUERY="{\"query\":\"{ patientsByLastName(lastName: \\\"$LAST_NAME\\\") { total patients { id firstName lastName gender dateOfBirth identifiers { type value system } } } }\"}"
+            RESPONSE=$(curl -s -X POST "http://localhost:9090/graphql/fhirapi/patient" \
+              -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
+              -H "Content-Type: application/json" \
+              -d "$GRAPHQL_QUERY")
+            echo "$RESPONSE" | jq '{data: {patients: .data.patientsByLastName}}' > /tmp/patient-response.json
           else
-            QUERY_URL="http://localhost:9090/api/patients?${PARAMS}"
+            # Get all patients
+            GRAPHQL_QUERY="{\"query\":\"{ allPatients { total patients { id firstName lastName gender dateOfBirth identifiers { type value system } } } }\"}"
+            RESPONSE=$(curl -s -X POST "http://localhost:9090/graphql/fhirapi/patient" \
+              -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
+              -H "Content-Type: application/json" \
+              -d "$GRAPHQL_QUERY")
+            echo "$RESPONSE" | jq '{data: {patients: .data.allPatients}}' > /tmp/patient-response.json
           fi
           
-          echo "Query URL: $QUERY_URL"
-          
-          # Query the API
-          RESPONSE=$(curl -s -X GET "$QUERY_URL" \
-            -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
-            -H "Accept: application/json")
-          
-          echo "API Response: $RESPONSE"
-          
-          # Save response to file for parsing
-          echo "$RESPONSE" > /tmp/patient-response.json
-          
-          # Count results
-          TOTAL=$(echo "$RESPONSE" | jq '.total // 0')
+          # Get total count
+          TOTAL=$(jq -r '.data.patients.total // 0' /tmp/patient-response.json)
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "API Response saved with $TOTAL results"
 
       - name: Format and comment results
         uses: actions/github-script@v7
@@ -185,8 +195,9 @@ jobs:
             const fs = require('fs');
             const response = JSON.parse(fs.readFileSync('/tmp/patient-response.json', 'utf8'));
             
-            const total = response.total || 0;
-            const patients = response.entry || [];
+            const patientsData = response.data?.patients || {};
+            const total = patientsData.total || 0;
+            const patients = patientsData.patients || [];
             
             let comment = '## 🔍 Patient Lookup Results\n\n';
             comment += `**Total Results Found:** ${total}\n\n`;
@@ -194,29 +205,34 @@ jobs:
             if (total === 0) {
               comment += '❌ No patients found matching the search criteria.\n\n';
               comment += '### Search Parameters Used:\n';
-              comment += `- **Name:** ${context.payload.issue.body.match(/### Patient Name\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
-              comment += `- **Gender:** ${context.payload.issue.body.match(/### Gender\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
-              comment += `- **Identifier:** ${context.payload.issue.body.match(/### Patient Identifier\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
+              const issueBody = context.payload.issue.body || '';
+              const parseName = issueBody.match(/### Patient Name\s*\n\s*(.+)/)?.[1] || 'Not specified';
+              const parseGender = issueBody.match(/### Gender\s*\n\s*(.+)/)?.[1] || 'Not specified';
+              const parseId = issueBody.match(/### Patient Identifier\s*\n\s*(.+)/)?.[1] || 'Not specified';
+              comment += `- **Name:** ${parseName}\n`;
+              comment += `- **Gender:** ${parseGender}\n`;
+              comment += `- **Identifier:** ${parseId}\n`;
             } else {
               comment += '✅ Found matching patient(s):\n\n';
               
-              patients.forEach((entry, index) => {
-                const patient = entry.resource;
-                const name = patient.name?.[0] || {};
-                const fullName = `${name.given?.join(' ') || ''} ${name.family || ''}`.trim();
+              patients.forEach((patient, index) => {
+                const fullName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim();
                 
                 comment += `### Patient ${index + 1}\n`;
-                comment += '```json\n';
-                comment += JSON.stringify(patient, null, 2);
-                comment += '\n```\n\n';
                 comment += `- **ID:** ${patient.id}\n`;
                 comment += `- **Name:** ${fullName || 'N/A'}\n`;
                 comment += `- **Gender:** ${patient.gender || 'N/A'}\n`;
-                comment += `- **Birth Date:** ${patient.birthDate || 'N/A'}\n`;
-                comment += `- **Active:** ${patient.active ? '✓' : '✗'}\n\n`;
+                comment += `- **Birth Date:** ${patient.dateOfBirth || 'N/A'}\n`;
+                
+                if (patient.identifiers && patient.identifiers.length > 0) {
+                  comment += `- **Identifiers:**\n`;
+                  patient.identifiers.forEach(id => {
+                    comment += `  - ${id.type}: ${id.value}\n`;
+                  });
+                }
                 
                 if (index < patients.length - 1) {
-                  comment += '---\n\n';
+                  comment += '\n---\n\n';
                 }
               });
             }
@@ -242,6 +258,7 @@ jobs:
       - name: Cleanup - Stop Docker Compose
         if: always()
         run: |
+          cd api
           docker-compose logs fhir-api
           docker-compose down -v
 
