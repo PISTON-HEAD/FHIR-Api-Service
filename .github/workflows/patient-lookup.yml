@@ -4,6 +4,10 @@ on:
   issues:
     types: [opened]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   patient-lookup:
     # Only run if the issue has the 'patient-lookup' label
@@ -85,6 +89,7 @@ jobs:
             sleep 3
           done
           echo "API failed to start in time"
+          cd api
           docker-compose logs fhir-api
           exit 1
 
