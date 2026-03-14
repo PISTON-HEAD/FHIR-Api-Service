@@ -2,25 +2,6 @@
 
 A Spring Boot GraphQL API service for managing patient data with FHIR R4 compliance and JWT authentication.
 
-## Features
-
-- 🔐 **JWT Authentication** - Secure token-based authentication
-- 📊 **GraphQL API** - Flexible query interface for patient data
-- 🏥 **FHIR R4 Compliant** - Full HAPI FHIR integration
-- 🔍 **Multiple Search Options** - Search by identifier, gender, last name
-- 🐳 **Docker Support** - Easy deployment with Docker Compose
-- 📮 **Postman Collection** - Complete API testing suite included
-
-## Tech Stack
-
-- **Spring Boot 3.5.11**
-- **Java 21**
-- **GraphQL** - Spring GraphQL
-- **MySQL 8.0**
-- **HAPI FHIR 6.10.0**
-- **JWT (JJWT 0.12.3)**
-- **Lombok**
-
 ## Quick Start
 
 ### 1. Start MySQL with Docker
