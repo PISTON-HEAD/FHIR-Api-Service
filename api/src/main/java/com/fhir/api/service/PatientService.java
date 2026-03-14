@@ -1,13 +1,15 @@
 package com.fhir.api.service;
 
-import com.fhir.api.entity.Patient;
-import com.fhir.api.entity.PatientIdentifier;
-import com.fhir.api.repository.PatientRepository;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Optional;
+import com.fhir.api.entity.Patient;
+import com.fhir.api.entity.PatientIdentifier;
+import com.fhir.api.repository.PatientRepository;
 
 @Service
 public class PatientService {
@@ -33,6 +35,18 @@ public class PatientService {
     @Transactional(readOnly = true)
     public List<Patient> findByLastName(String lastName) {
         return patientRepository.findByLastName(lastName);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Patient> findByFirstName(String firstName) {
+        return patientRepository.findByFirstName(firstName);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Patient> searchPatients(String firstName, String lastName, String gender, LocalDate dateOfBirth) {
+        // If identifier search needed, handle separately
+        // This method supports combined search of multiple fields
+        return patientRepository.searchPatients(firstName, lastName, gender, dateOfBirth);
     }
 
     @Transactional(readOnly = true)

@@ -135,56 +135,65 @@ jobs:
       - name: Query Patient API
         id: query-patients
         run: |
-          # Build GraphQL query based on inputs
+          # Build REST API query based on inputs
           PATIENT_NAME="${{ steps.parse-issue.outputs.patient-name }}"
           GENDER="${{ steps.parse-issue.outputs.gender }}"
           IDENTIFIER="${{ steps.parse-issue.outputs.identifier }}"
+          BIRTH_DATE="${{ steps.parse-issue.outputs.birth-date }}"
           
-          # Determine which query to use
+          # Build query parameters
+          PARAMS=""
+          
           if [ -n "$IDENTIFIER" ]; then
-            # Query by identifier
-            GRAPHQL_QUERY="{\"query\":\"{ patient(identifier: \\\"$IDENTIFIER\\\") { id firstName lastName gender dateOfBirth identifiers { type value system } fhirResource } }\"}"
-            RESPONSE=$(curl -s -X POST "http://localhost:9090/graphql/fhirapi/patient" \
-              -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
-              -H "Content-Type: application/json" \
-              -d "$GRAPHQL_QUERY")
-            
-            # Check if patient was found
-            if echo "$RESPONSE" | jq -e '.data.patient.id' > /dev/null 2>&1; then
-              # Convert single patient to array format
-              echo "$RESPONSE" | jq '{data: {patients: {total: 1, patients: [.data.patient]}}}' > /tmp/patient-response.json
-            else
-              echo '{"data":{"patients":{"total":0,"patients":[]}}}' > /tmp/patient-response.json
-            fi
-          elif [ -n "$GENDER" ]; then
-            # Query by gender
-            GRAPHQL_QUERY="{\"query\":\"{ patientsByGender(gender: \\\"$GENDER\\\") { total patients { id firstName lastName gender dateOfBirth identifiers { type value system } } } }\"}"
-            RESPONSE=$(curl -s -X POST "http://localhost:9090/graphql/fhirapi/patient" \
-              -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
-              -H "Content-Type: application/json" \
-              -d "$GRAPHQL_QUERY")
-            echo "$RESPONSE" | jq '{data: {patients: .data.patientsByGender}}' > /tmp/patient-response.json
-          elif [ -n "$PATIENT_NAME" ]; then
-            # Query by last name (extract last word as last name)
-            LAST_NAME=$(echo "$PATIENT_NAME" | awk '{print $NF}')
-            GRAPHQL_QUERY="{\"query\":\"{ patientsByLastName(lastName: \\\"$LAST_NAME\\\") { total patients { id firstName lastName gender dateOfBirth identifiers { type value system } } } }\"}"
-            RESPONSE=$(curl -s -X POST "http://localhost:9090/graphql/fhirapi/patient" \
-              -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
-              -H "Content-Type: application/json" \
-              -d "$GRAPHQL_QUERY")
-            echo "$RESPONSE" | jq '{data: {patients: .data.patientsByLastName}}' > /tmp/patient-response.json
-          else
-            # Get all patients
-            GRAPHQL_QUERY="{\"query\":\"{ allPatients { total patients { id firstName lastName gender dateOfBirth identifiers { type value system } } } }\"}"
-            RESPONSE=$(curl -s -X POST "http://localhost:9090/graphql/fhirapi/patient" \
-              -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
-              -H "Content-Type: application/json" \
-              -d "$GRAPHQL_QUERY")
-            echo "$RESPONSE" | jq '{data: {patients: .data.allPatients}}' > /tmp/patient-response.json
+            PARAMS="${PARAMS}&identifier=$IDENTIFIER"
           fi
           
+          if [ -n "$GENDER" ]; then
+            PARAMS="${PARAMS}&gender=$GENDER"
+          fi
+          
+          if [ -n "$PATIENT_NAME" ]; then
+            # Try to split name into first and last name
+            FIRST_NAME=$(echo "$PATIENT_NAME" | awk '{print $1}')
+            LAST_NAME=$(echo "$PATIENT_NAME" | awk '{print $NF}')
+            
+            if [ "$FIRST_NAME" != "$LAST_NAME" ]; then
+              # Multi-word name
+              PARAMS="${PARAMS}&fname=$FIRST_NAME&lname=$LAST_NAME"
+            else
+              # Single word - try as first name first, then last name
+              PARAMS="${PARAMS}&fname=$FIRST_NAME"
+            fi
+          fi
+          
+          if [ -n "$BIRTH_DATE" ]; then
+            PARAMS="${PARAMS}&birthDate=$BIRTH_DATE"
+          fi
+          
+          # Remove leading &
+          PARAMS=$(echo "$PARAMS" | sed 's/^&/?/')
+          
+          # Build URL
+          if [ -z "$PARAMS" ]; then
+            QUERY_URL="http://localhost:9090/api/patients"
+          else
+            QUERY_URL="http://localhost:9090/api/patients${PARAMS}"
+          fi
+          
+          echo "Query URL: $QUERY_URL"
+          
+          # Query the REST API
+          RESPONSE=$(curl -s -X GET "$QUERY_URL" \
+            -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
+            -H "Accept: application/json")
+          
+          echo "API Response: $RESPONSE"
+          
+          # Save response to file
+          echo "$RESPONSE" > /tmp/patient-response.json
+          
           # Get total count
-          TOTAL=$(jq -r '.data.patients.total // 0' /tmp/patient-response.json)
+          TOTAL=$(echo "$RESPONSE" | jq '.total // 0')
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
           echo "API Response saved with $TOTAL results"
 
@@ -195,9 +204,8 @@ jobs:
             const fs = require('fs');
             const response = JSON.parse(fs.readFileSync('/tmp/patient-response.json', 'utf8'));
             
-            const patientsData = response.data?.patients || {};
-            const total = patientsData.total || 0;
-            const patients = patientsData.patients || [];
+            const total = response.total || 0;
+            const patients = response.patients || [];
             
             let comment = '## 🔍 Patient Lookup Results\n\n';
             comment += `**Total Results Found:** ${total}\n\n`;

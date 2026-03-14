@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "FHIR GraphQL Patient API - Complete Testing Suite",
-    "description": "Complete collection for testing the FHIR GraphQL Patient Data Service - Includes user creation, login, patient creation, and all query types",
+    "description": "Complete collection for testing the FHIR GraphQL Patient Data Service - Includes authentication, patient creation, REST GET search endpoints with multi-parameter support, GraphQL queries, and sample data testing",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -201,10 +201,364 @@
       "description": "REST API endpoints for creating patients"
     },
     {
-      "name": "3. GraphQL Queries",
+      "name": "3. Search Patients (REST GET)",
       "item": [
         {
-          "name": "3.1 Query Patient by Identifier (MRN)",
+          "name": "3.1 Search All Patients",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"]
+            },
+            "description": "Get all patients without any filters"
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Search by First Name",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?fname=John",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "fname",
+                  "value": "John",
+                  "description": "First name to search"
+                }
+              ]
+            },
+            "description": "Search patients by first name (partial match)"
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 Search by Last Name",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?lname=Smith",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "lname",
+                  "value": "Smith",
+                  "description": "Last name to search"
+                }
+              ]
+            },
+            "description": "Search patients by last name (partial match)"
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 Search by Gender",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?gender=male",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "gender",
+                  "value": "male",
+                  "description": "Gender filter (male/female)"
+                }
+              ]
+            },
+            "description": "Search patients by gender"
+          },
+          "response": []
+        },
+        {
+          "name": "3.5 Search by Identifier",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?identifier=MRN0001",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "identifier",
+                  "value": "MRN0001",
+                  "description": "Patient identifier (MRN, SSN, etc.)"
+                }
+              ]
+            },
+            "description": "Search patient by identifier (MRN, SSN, Account Number, etc.)"
+          },
+          "response": []
+        },
+        {
+          "name": "3.6 Search by First Name + Gender",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?fname=John&gender=male",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "fname",
+                  "value": "John",
+                  "description": "First name"
+                },
+                {
+                  "key": "gender",
+                  "value": "male",
+                  "description": "Gender"
+                }
+              ]
+            },
+            "description": "Combined search: First name AND gender"
+          },
+          "response": []
+        },
+        {
+          "name": "3.7 Search by First Name + Last Name",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?fname=Emily&lname=Williams",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "fname",
+                  "value": "Emily",
+                  "description": "First name"
+                },
+                {
+                  "key": "lname",
+                  "value": "Williams",
+                  "description": "Last name"
+                }
+              ]
+            },
+            "description": "Combined search: First name AND last name"
+          },
+          "response": []
+        },
+        {
+          "name": "3.8 Search by First Name + Last Name + Gender",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?fname=Michael&lname=Brown&gender=male",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "fname",
+                  "value": "Michael",
+                  "description": "First name"
+                },
+                {
+                  "key": "lname",
+                  "value": "Brown",
+                  "description": "Last name"
+                },
+                {
+                  "key": "gender",
+                  "value": "male",
+                  "description": "Gender"
+                }
+              ]
+            },
+            "description": "Combined search: First name AND last name AND gender"
+          },
+          "response": []
+        },
+        {
+          "name": "3.9 Search by Birth Date",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?birthDate=1990-01-15",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "birthDate",
+                  "value": "1990-01-15",
+                  "description": "Date of birth (YYYY-MM-DD format)"
+                }
+              ]
+            },
+            "description": "Search patients by date of birth"
+          },
+          "response": []
+        },
+        {
+          "name": "3.10 Search Female Patients by First Name",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:9090/api/patients?gender=female&fname=Sarah",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"],
+              "query": [
+                {
+                  "key": "gender",
+                  "value": "female",
+                  "description": "Gender"
+                },
+                {
+                  "key": "fname",
+                  "value": "Sarah",
+                  "description": "First name"
+                }
+              ]
+            },
+            "description": "Search for female patients with specific first name"
+          },
+          "response": []
+        }
+      ],
+      "description": "REST GET endpoints for searching patients with multiple parameter combinations"
+    },
+    {
+      "name": "4. GraphQL Queries",
+      "item": [
+        {
+          "name": "4.1 Query Patient by Identifier (MRN)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -239,7 +593,7 @@
           "response": []
         },
         {
-          "name": "3.2 Query Patient by Identifier (SSN)",
+          "name": "4.2 Query Patient by Identifier (SSN)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -274,7 +628,7 @@
           "response": []
         },
         {
-          "name": "3.3 Query Patients by Gender (Male)",
+          "name": "4.3 Query Patients by Gender (Male)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -309,7 +663,7 @@
           "response": []
         },
         {
-          "name": "3.4 Query Patients by Gender (Female)",
+          "name": "4.4 Query Patients by Gender (Female)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -344,7 +698,7 @@
           "response": []
         },
         {
-          "name": "3.5 Query Patients by Last Name (Smith)",
+          "name": "4.5 Query Patients by Last Name (Smith)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -379,7 +733,7 @@
           "response": []
         },
         {
-          "name": "3.6 Query Patients by Last Name (Doe)",
+          "name": "4.6 Query Patients by Last Name (Doe)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -414,7 +768,7 @@
           "response": []
         },
         {
-          "name": "3.7 Query All Patients",
+          "name": "4.7 Query All Patients",
           "request": {
             "auth": {
               "type": "bearer",
@@ -452,10 +806,10 @@
       "description": "GraphQL query endpoints for retrieving patient data"
     },
     {
-      "name": "4. Sample Data Queries",
+      "name": "5. Sample Data Queries",
       "item": [
         {
-          "name": "4.1 Find Patient by MRN0005",
+          "name": "5.1 Find Patient by MRN0005",
           "request": {
             "auth": {
               "type": "bearer",
@@ -490,7 +844,7 @@
           "response": []
         },
         {
-          "name": "4.2 Find Patients with Last Name Garcia",
+          "name": "5.2 Find Patients with Last Name Garcia",
           "request": {
             "auth": {
               "type": "bearer",
