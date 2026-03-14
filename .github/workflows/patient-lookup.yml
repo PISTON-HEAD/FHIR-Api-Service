@@ -68,7 +68,7 @@ jobs:
       - name: Start Docker Compose
         run: |
           cd api
-          docker-compose up -d
+          docker compose up -d
           echo "Waiting for services to be ready..."
 
       - name: Wait for MySQL to be ready
