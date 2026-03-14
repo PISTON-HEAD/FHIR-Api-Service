@@ -55,6 +55,90 @@ Username: admin
 Password: password
 ```
 
+## Pre-loaded Patients for Testing
+
+The database includes 8 sample patients you can use to test the API and GitHub Issue Ops:
+
+| Patient Name         | Gender | Date of Birth | Identifiers                        |
+| -------------------- | ------ | ------------- | ---------------------------------- |
+| John Michael Doe     | male   | 1990-01-15    | MRN0001, ACN0001, VIS0001, DL12345 |
+| Jane Elizabeth Smith | female | 1985-05-20    | MRN0002, ACN0002, SSN123456        |
+| Robert James Johnson | male   | 1978-11-30    | MRN0003, ACN0003, VIS0003          |
+| Emily Rose Williams  | female | 1992-03-25    | MRN0004, ACN0004                   |
+| Michael David Brown  | male   | 1988-07-10    | MRN0005, ACN0005, INS54321         |
+| Sarah Anne Davis     | female | 1995-12-05    | MRN0006, ACN0006                   |
+| David Lee Martinez   | male   | 1982-09-18    | MRN0007, ACN0007, VIS0007          |
+| Lisa Marie Garcia    | female | 1991-02-28    | MRN0008, ACN0008                   |
+
+### Example Values for GitHub Issue Template Testing
+
+When creating a patient lookup issue, you can use these test values:
+
+**Search by Name:**
+
+- Patient Name: `John Doe` or `Jane Smith` or `Emily Williams`
+
+**Search by Gender:**
+
+- Gender: `male` (4 results) or `female` (4 results)
+
+**Search by Identifier:**
+
+- Patient Identifier: `MRN0001`, `ACN0002`, `SSN123456`, `VIS0003`, `DL12345`, `INS54321`
+
+**Search by Birth Date:**
+
+- Birth Date: `1990-01-15`, `1985-05-20`, `1992-03-25`
+
+**Combined Search Example:**
+
+- Patient Name: `David`
+- Gender: `male`
+- Birth Date: `1982-09-18`
+
+## GitHub Issue Ops - Automated Patient Lookup
+
+This project includes GitHub Actions automation that allows you to search for patients directly through GitHub Issues!
+
+### How to Use Issue Ops
+
+1. **Go to the Issues tab** in your GitHub repository
+2. **Click "New Issue"**
+3. **Select "🔍 Patient Lookup Request"** template
+4. **Fill in the search criteria:**
+   - Patient Name (e.g., `John Doe` or `Smith`)
+   - Gender (`male` or `female`)
+   - Patient Identifier (e.g., `MRN0001`)
+   - Birth Date (optional, format: `YYYY-MM-DD`)
+5. **Submit the issue**
+
+The workflow will automatically:
+
+- ✅ Start the Docker containers
+- ✅ Authenticate with the FHIR API
+- ✅ Query the GraphQL endpoint based on your criteria
+- ✅ Post the results as a comment on the issue
+- ✅ Close the issue with the `completed` label
+- ✅ Clean up the Docker containers
+
+### Search Priority
+
+The workflow uses the following priority for searches:
+
+1. **Identifier** (if provided) - searches by MRN, SSN, or other identifiers
+2. **Gender** (if provided, no identifier) - returns all patients of specified gender
+3. **Patient Name** (if provided, no identifier/gender) - searches by last name
+4. **No criteria** - returns all patients
+
+### Requirements
+
+For the GitHub Issue Ops to work, you need to configure repository secrets:
+
+- `FHIR_API_USERNAME` - Username for API authentication (e.g., `admin`)
+- `FHIR_API_PASSWORD` - Password for API authentication (e.g., `password`)
+
+The workflow will create the user if it doesn't exist, or use existing credentials to login.
+
 ## GraphQL Query Examples
 
 ### Find Patient by Identifier
@@ -183,7 +267,3 @@ src/main/resources/
 - **README.md** - This file
 - **DOCKER_GUIDE.md** - Detailed Docker setup and troubleshooting
 - **POSTMAN_GUIDE.md** - Complete Postman collection usage guide
-
-## License
-
-MIT License
