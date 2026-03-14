@@ -1,0 +1,535 @@
+{
+  "info": {
+    "name": "FHIR GraphQL Patient API - Complete Testing Suite",
+    "description": "Complete collection for testing the FHIR GraphQL Patient Data Service - Includes user creation, login, patient creation, and all query types",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "1.1 Create User (Signup)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set(\"jwt_token\", jsonData.token);",
+                  "    pm.environment.set(\"username\", jsonData.username);",
+                  "    console.log(\"JWT Token saved: \" + jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testdoctor\",\n  \"password\": \"password123\",\n  \"email\": \"testdoctor@hospital.com\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/auth/signup",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["auth", "signup"]
+            },
+            "description": "Create a new user account. The JWT token will be automatically saved to environment variables."
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set(\"jwt_token\", jsonData.token);",
+                  "    pm.environment.set(\"username\", jsonData.username);",
+                  "    console.log(\"JWT Token saved: \" + jsonData.token);",
+                  "    console.log(\"Token expires in 30 minutes\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["auth", "login"]
+            },
+            "description": "Login with existing credentials. Default: admin/password. JWT token auto-saved."
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication endpoints for user signup and login"
+    },
+    {
+      "name": "2. Create Patients (REST API)",
+      "item": [
+        {
+          "name": "2.1 Create Patient - John Smith",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set(\"patient1_id\", jsonData.id);",
+                  "    console.log(\"Patient ID saved: \" + jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"middleName\": \"Alexander\",\n  \"lastName\": \"Smith\",\n  \"dateOfBirth\": \"1985-06-15\",\n  \"gender\": \"male\",\n  \"phone\": \"555-1234\",\n  \"email\": \"john.smith@email.com\",\n  \"addressLine1\": \"123 Oak Avenue\",\n  \"addressLine2\": \"Apt 5B\",\n  \"city\": \"Seattle\",\n  \"state\": \"WA\",\n  \"postalCode\": \"98101\",\n  \"country\": \"USA\",\n  \"identifiers\": [\n    {\n      \"type\": \"SSN\",\n      \"value\": \"123-45-6789\",\n      \"system\": \"http://ssa.gov\"\n    },\n    {\n      \"type\": \"AccountNumber\",\n      \"value\": \"ACN1001\",\n      \"system\": \"http://hospital.com/account\"\n    },\n    {\n      \"type\": \"MRN\",\n      \"value\": \"MRN1001\",\n      \"system\": \"http://hospital.com/mrn\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/api/patients",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"]
+            },
+            "description": "Create a new patient with multiple identifiers"
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 Create Patient - Emma Wilson",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set(\"patient2_id\", jsonData.id);",
+                  "    console.log(\"Patient ID saved: \" + jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Emma\",\n  \"middleName\": \"Grace\",\n  \"lastName\": \"Wilson\",\n  \"dateOfBirth\": \"1992-09-20\",\n  \"gender\": \"female\",\n  \"phone\": \"555-5678\",\n  \"email\": \"emma.wilson@email.com\",\n  \"addressLine1\": \"456 Pine Street\",\n  \"city\": \"Portland\",\n  \"state\": \"OR\",\n  \"postalCode\": \"97201\",\n  \"country\": \"USA\",\n  \"identifiers\": [\n    {\n      \"type\": \"MRN\",\n      \"value\": \"MRN1002\",\n      \"system\": \"http://hospital.com/mrn\"\n    },\n    {\n      \"type\": \"AccountNumber\",\n      \"value\": \"ACN1002\",\n      \"system\": \"http://hospital.com/account\"\n    },\n    {\n      \"type\": \"InsuranceID\",\n      \"value\": \"INS98765\",\n      \"system\": \"http://insurance.com\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/api/patients",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["api", "patients"]
+            },
+            "description": "Create another patient with different identifiers"
+          },
+          "response": []
+        }
+      ],
+      "description": "REST API endpoints for creating patients"
+    },
+    {
+      "name": "3. GraphQL Queries",
+      "item": [
+        {
+          "name": "3.1 Query Patient by Identifier (MRN)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query GetPatientByIdentifier($identifier: String!) { patient(identifier: $identifier) { id firstName lastName gender dateOfBirth identifiers { type value system } fhirResource } }\",\n  \"variables\": {\n    \"identifier\": \"MRN0001\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Query a patient by their MRN identifier"
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Query Patient by Identifier (SSN)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query GetPatientByIdentifier($identifier: String!) { patient(identifier: $identifier) { id firstName lastName gender dateOfBirth identifiers { type value system } fhirResource } }\",\n  \"variables\": {\n    \"identifier\": \"SSN123456\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Query a patient by their SSN identifier"
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 Query Patients by Gender (Male)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query GetPatientsByGender($gender: String!) { patientsByGender(gender: $gender) { total fhirBundle patients { id firstName lastName gender dateOfBirth identifiers { type value } } } }\",\n  \"variables\": {\n    \"gender\": \"male\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Query all male patients with FHIR Bundle"
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 Query Patients by Gender (Female)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query GetPatientsByGender($gender: String!) { patientsByGender(gender: $gender) { total fhirBundle patients { id firstName lastName gender dateOfBirth identifiers { type value } } } }\",\n  \"variables\": {\n    \"gender\": \"female\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Query all female patients with FHIR Bundle"
+          },
+          "response": []
+        },
+        {
+          "name": "3.5 Query Patients by Last Name (Smith)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query GetPatientsByLastName($lastName: String!) { patientsByLastName(lastName: $lastName) { total fhirBundle patients { id firstName lastName gender dateOfBirth identifiers { type value } } } }\",\n  \"variables\": {\n    \"lastName\": \"Smith\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Query patients by last name"
+          },
+          "response": []
+        },
+        {
+          "name": "3.6 Query Patients by Last Name (Doe)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query GetPatientsByLastName($lastName: String!) { patientsByLastName(lastName: $lastName) { total fhirBundle patients { id firstName lastName gender dateOfBirth identifiers { type value } } } }\",\n  \"variables\": {\n    \"lastName\": \"Doe\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Query patients with last name Doe"
+          },
+          "response": []
+        },
+        {
+          "name": "3.7 Query All Patients",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query GetAllPatients { allPatients { total fhirBundle patients { id firstName lastName gender dateOfBirth identifiers { type value system } } } }\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Retrieve all patients in the system with FHIR Bundle"
+          },
+          "response": []
+        }
+      ],
+      "description": "GraphQL query endpoints for retrieving patient data"
+    },
+    {
+      "name": "4. Sample Data Queries",
+      "item": [
+        {
+          "name": "4.1 Find Patient by MRN0005",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"{ patient(identifier: \\\"MRN0005\\\") { id firstName lastName gender dateOfBirth identifiers { type value } fhirResource } }\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Find Michael Brown by his MRN"
+          },
+          "response": []
+        },
+        {
+          "name": "4.2 Find Patients with Last Name Garcia",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"{ patientsByLastName(lastName: \\\"Garcia\\\") { total patients { id firstName lastName gender } fhirBundle } }\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:9090/graphql/fhirapi/patient",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "9090",
+              "path": ["graphql", "fhirapi", "patient"]
+            },
+            "description": "Find all patients with last name Garcia"
+          },
+          "response": []
+        }
+      ],
+      "description": "Example queries against pre-loaded sample data"
+    }
+  ]
+}
+
+
+
+
