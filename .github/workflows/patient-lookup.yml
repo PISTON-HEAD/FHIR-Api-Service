@@ -63,6 +63,7 @@ jobs:
 
       - name: Start Docker Compose
         run: |
+          cd api
           docker-compose up -d
           echo "Waiting for services to be ready..."
 
@@ -134,49 +135,67 @@ jobs:
       - name: Query Patient API
         id: query-patients
         run: |
+          # Build REST API query based on inputs
+          PATIENT_NAME="${{ steps.parse-issue.outputs.patient-name }}"
+          GENDER="${{ steps.parse-issue.outputs.gender }}"
+          IDENTIFIER="${{ steps.parse-issue.outputs.identifier }}"
+          BIRTH_DATE="${{ steps.parse-issue.outputs.birth-date }}"
+          
           # Build query parameters
           PARAMS=""
           
-          if [ -n "${{ steps.parse-issue.outputs.patient-name }}" ]; then
-            PARAMS="${PARAMS}&name=${{ steps.parse-issue.outputs.patient-name }}"
+          if [ -n "$IDENTIFIER" ]; then
+            PARAMS="${PARAMS}&identifier=$IDENTIFIER"
           fi
           
-          if [ -n "${{ steps.parse-issue.outputs.gender }}" ]; then
-            PARAMS="${PARAMS}&gender=${{ steps.parse-issue.outputs.gender }}"
+          if [ -n "$GENDER" ]; then
+            PARAMS="${PARAMS}&gender=$GENDER"
           fi
           
-          if [ -n "${{ steps.parse-issue.outputs.identifier }}" ]; then
-            PARAMS="${PARAMS}&identifier=${{ steps.parse-issue.outputs.identifier }}"
+          if [ -n "$PATIENT_NAME" ]; then
+            # Try to split name into first and last name
+            FIRST_NAME=$(echo "$PATIENT_NAME" | awk '{print $1}')
+            LAST_NAME=$(echo "$PATIENT_NAME" | awk '{print $NF}')
+            
+            if [ "$FIRST_NAME" != "$LAST_NAME" ]; then
+              # Multi-word name
+              PARAMS="${PARAMS}&fname=$FIRST_NAME&lname=$LAST_NAME"
+            else
+              # Single word - try as first name first, then last name
+              PARAMS="${PARAMS}&fname=$FIRST_NAME"
+            fi
           fi
           
-          if [ -n "${{ steps.parse-issue.outputs.birth-date }}" ]; then
-            PARAMS="${PARAMS}&birthDate=${{ steps.parse-issue.outputs.birth-date }}"
+          if [ -n "$BIRTH_DATE" ]; then
+            PARAMS="${PARAMS}&birthDate=$BIRTH_DATE"
           fi
           
           # Remove leading &
-          PARAMS=$(echo "$PARAMS" | sed 's/^&//')
+          PARAMS=$(echo "$PARAMS" | sed 's/^&/?/')
           
+          # Build URL
           if [ -z "$PARAMS" ]; then
             QUERY_URL="http://localhost:9090/api/patients"
           else
-            QUERY_URL="http://localhost:9090/api/patients?${PARAMS}"
+            QUERY_URL="http://localhost:9090/api/patients${PARAMS}"
           fi
           
           echo "Query URL: $QUERY_URL"
           
-          # Query the API
+          # Query the REST API
           RESPONSE=$(curl -s -X GET "$QUERY_URL" \
             -H "Authorization: Bearer ${{ steps.auth-setup.outputs.jwt }}" \
             -H "Accept: application/json")
           
           echo "API Response: $RESPONSE"
           
-          # Save response to file for parsing
+          # Save response to file
           echo "$RESPONSE" > /tmp/patient-response.json
           
-          # Count results
+          # Get total count
           TOTAL=$(echo "$RESPONSE" | jq '.total // 0')
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "API Response saved with $TOTAL results"
 
       - name: Format and comment results
         uses: actions/github-script@v7
@@ -186,7 +205,7 @@ jobs:
             const response = JSON.parse(fs.readFileSync('/tmp/patient-response.json', 'utf8'));
             
             const total = response.total || 0;
-            const patients = response.entry || [];
+            const patients = response.patients || [];
             
             let comment = '## 🔍 Patient Lookup Results\n\n';
             comment += `**Total Results Found:** ${total}\n\n`;
@@ -194,29 +213,34 @@ jobs:
             if (total === 0) {
               comment += '❌ No patients found matching the search criteria.\n\n';
               comment += '### Search Parameters Used:\n';
-              comment += `- **Name:** ${context.payload.issue.body.match(/### Patient Name\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
-              comment += `- **Gender:** ${context.payload.issue.body.match(/### Gender\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
-              comment += `- **Identifier:** ${context.payload.issue.body.match(/### Patient Identifier\s*\n\s*(.+)/)?.[1] || 'Not specified'}\n`;
+              const issueBody = context.payload.issue.body || '';
+              const parseName = issueBody.match(/### Patient Name\s*\n\s*(.+)/)?.[1] || 'Not specified';
+              const parseGender = issueBody.match(/### Gender\s*\n\s*(.+)/)?.[1] || 'Not specified';
+              const parseId = issueBody.match(/### Patient Identifier\s*\n\s*(.+)/)?.[1] || 'Not specified';
+              comment += `- **Name:** ${parseName}\n`;
+              comment += `- **Gender:** ${parseGender}\n`;
+              comment += `- **Identifier:** ${parseId}\n`;
             } else {
               comment += '✅ Found matching patient(s):\n\n';
               
-              patients.forEach((entry, index) => {
-                const patient = entry.resource;
-                const name = patient.name?.[0] || {};
-                const fullName = `${name.given?.join(' ') || ''} ${name.family || ''}`.trim();
+              patients.forEach((patient, index) => {
+                const fullName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim();
                 
                 comment += `### Patient ${index + 1}\n`;
-                comment += '```json\n';
-                comment += JSON.stringify(patient, null, 2);
-                comment += '\n```\n\n';
                 comment += `- **ID:** ${patient.id}\n`;
                 comment += `- **Name:** ${fullName || 'N/A'}\n`;
                 comment += `- **Gender:** ${patient.gender || 'N/A'}\n`;
-                comment += `- **Birth Date:** ${patient.birthDate || 'N/A'}\n`;
-                comment += `- **Active:** ${patient.active ? '✓' : '✗'}\n\n`;
+                comment += `- **Birth Date:** ${patient.dateOfBirth || 'N/A'}\n`;
+                
+                if (patient.identifiers && patient.identifiers.length > 0) {
+                  comment += `- **Identifiers:**\n`;
+                  patient.identifiers.forEach(id => {
+                    comment += `  - ${id.type}: ${id.value}\n`;
+                  });
+                }
                 
                 if (index < patients.length - 1) {
-                  comment += '---\n\n';
+                  comment += '\n---\n\n';
                 }
               });
             }
@@ -242,6 +266,7 @@ jobs:
       - name: Cleanup - Stop Docker Compose
         if: always()
         run: |
+          cd api
           docker-compose logs fhir-api
           docker-compose down -v
 

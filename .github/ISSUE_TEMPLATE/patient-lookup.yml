@@ -75,14 +75,3 @@ body:
       placeholder: "e.g., Known conditions, last visit date, etc."
     validations:
       required: false
-
-  - type: checkboxes
-    id: terms
-    attributes:
-      label: Acknowledgment
-      description: Please confirm you understand the following
-      options:
-        - label: I confirm that I am authorized to access patient information
-          required: true
-        - label: I understand this is for authorized use only and will comply with privacy policies
-          required: true

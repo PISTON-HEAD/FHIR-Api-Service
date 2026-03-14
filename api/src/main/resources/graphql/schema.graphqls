@@ -15,6 +15,11 @@ type Query {
   patientsByLastName(lastName: String!): PatientBundleResult
 
   """
+  Find patients by first name
+  """
+  patientsByFirstName(firstName: String!): PatientBundleResult
+
+  """
   Get all patients
   """
   allPatients: PatientBundleResult
