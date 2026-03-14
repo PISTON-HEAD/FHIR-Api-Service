@@ -32,6 +32,11 @@ Import `FHIR_GraphQL_API.postman_collection.json` into Postman
 ### REST API
 
 - **POST** `/api/patients` - Create a new patient (requires JWT)
+- **GET** `/api/patients` - Search patients with query parameters (requires JWT)
+  - Query parameters: `fname`, `lname`, `gender`, `identifier`, `birthDate`
+  - Example: `/api/patients?gender=male&fname=john`
+  - Example: `/api/patients?identifier=MRN0001`
+  - Example: `/api/patients?fname=Emily&gender=female`
 
 ### GraphQL Endpoint
 
@@ -116,19 +121,20 @@ The workflow will automatically:
 
 - ✅ Start the Docker containers
 - ✅ Authenticate with the FHIR API
-- ✅ Query the GraphQL endpoint based on your criteria
+- ✅ Query the REST API with your search criteria
+- ✅ Support multiple parameter combinations
 - ✅ Post the results as a comment on the issue
 - ✅ Close the issue with the `completed` label
 - ✅ Clean up the Docker containers
 
-### Search Priority
+### Search Capabilities
 
-The workflow uses the following priority for searches:
+The workflow now supports combined parameter searches:
 
-1. **Identifier** (if provided) - searches by MRN, SSN, or other identifiers
-2. **Gender** (if provided, no identifier) - returns all patients of specified gender
-3. **Patient Name** (if provided, no identifier/gender) - searches by last name
-4. **No criteria** - returns all patients
+- **Multiple parameters combined**: Search by first name AND gender simultaneously
+- **Flexible name search**: Automatically splits full names into first/last name
+- **Priority-based search**: Identifier takes precedence, followed by combined criteria
+- **All parameters supported**: `fname`, `lname`, `gender`, `identifier`, `birthDate`
 
 ### Requirements
 
@@ -138,6 +144,65 @@ For the GitHub Issue Ops to work, you need to configure repository secrets:
 - `FHIR_API_PASSWORD` - Password for API authentication (e.g., `password`)
 
 The workflow will create the user if it doesn't exist, or use existing credentials to login.
+
+## REST API Query Examples
+
+The API now supports direct GET requests with multiple query parameters for flexible patient searches.
+
+### Search by Single Parameter
+
+**Search by First Name:**
+
+```bash
+curl -X GET "http://localhost:9090/api/patients?fname=John" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Search by Gender:**
+
+```bash
+curl -X GET "http://localhost:9090/api/patients?gender=male" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Search by Identifier:**
+
+```bash
+curl -X GET "http://localhost:9090/api/patients?identifier=MRN0001" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Search by Multiple Parameters
+
+**Combine First Name and Gender:**
+
+```bash
+curl -X GET "http://localhost:9090/api/patients?fname=John&gender=male" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Combine Last Name and Birth Date:**
+
+```bash
+curl -X GET "http://localhost:9090/api/patients?lname=Doe&birthDate=1990-01-15" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Full Name and Gender Search:**
+
+```bash
+curl -X GET "http://localhost:9090/api/patients?fname=Emily&lname=Williams&gender=female" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Browser-Friendly URLs
+
+You can also use these URLs directly in your browser (after obtaining a JWT token):
+
+- `http://localhost:9090/api/patients?gender=male&fname=john`
+- `http://localhost:9090/api/patients?identifier=MRN0001`
+- `http://localhost:9090/api/patients?fname=Emily&gender=female`
+- `http://localhost:9090/api/patients` (returns all patients)
 
 ## GraphQL Query Examples
 
@@ -166,6 +231,44 @@ query {
 ```graphql
 query {
   patientsByGender(gender: "male") {
+    total
+    fhirBundle
+    patients {
+      id
+      firstName
+      lastName
+      gender
+    }
+  }
+}
+```
+
+### Find Patients by First Name
+
+```graphql
+query {
+  patientsByFirstName(firstName: "John") {
+    total
+    fhirBundle
+    patients {
+      id
+      firstName
+      lastName
+      gender
+      identifiers {
+        type
+        value
+      }
+    }
+  }
+}
+```
+
+### Find Patients by Last Name
+
+```graphql
+query {
+  patientsByLastName(lastName: "Smith") {
     total
     fhirBundle
     patients {
@@ -267,3 +370,7 @@ src/main/resources/
 - **README.md** - This file
 - **DOCKER_GUIDE.md** - Detailed Docker setup and troubleshooting
 - **POSTMAN_GUIDE.md** - Complete Postman collection usage guide
+
+## License
+
+MIT License
