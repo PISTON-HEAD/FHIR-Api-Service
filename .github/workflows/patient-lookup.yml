@@ -90,7 +90,7 @@ jobs:
           done
           echo "API failed to start in time"
           cd api
-          docker-compose logs fhir-api
+          docker compose logs fhir-api
           exit 1
 
       - name: Check if user exists, create if not
@@ -272,8 +272,8 @@ jobs:
         if: always()
         run: |
           cd api
-          docker-compose logs fhir-api
-          docker-compose down -v
+          docker compose logs fhir-api
+          docker compose down -v
 
       - name: Comment on failure
         if: failure()
