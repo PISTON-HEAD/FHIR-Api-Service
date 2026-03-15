@@ -1,6 +1,6 @@
 ## Project Description
 
-**FHIR GraphQL Patient API** - A modern healthcare data management microservice that provides a secure, standards-compliant API for managing patient information using FHIR R4 specifications. The service offers both REST and GraphQL interfaces with JWT-based authentication and includes GitHub Issue Ops automation for patient lookups.
+**FHIR GraphQL Patient API** - A modern healthcare data management service that provides a secure, standards-compliant API for managing patient information using FHIR R4 specifications. The service offers both REST and GraphQL interfaces with JWT-based authentication and includes GitHub Issue Ops automation for patient lookups.
 
 ## Technologies Used
 
