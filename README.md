@@ -7,7 +7,7 @@ A Spring Boot GraphQL API service for managing patient data with FHIR R4 complia
 ### 1. Start MySQL with Docker
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 2. Run the Application
