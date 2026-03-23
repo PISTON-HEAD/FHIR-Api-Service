@@ -1,6 +1,14 @@
 # FHIR GraphQL Patient API
 
-A Spring Boot GraphQL API service for managing patient data with FHIR R4 compliance and JWT authentication.
+A Spring Boot GraphQL API service for managing patient data with FHIR R4 compliance and JWT authentication.This is a GraphQL and REST API Spring Boot application that manages patient records with healthcare industry standards. It supports FHIR R4, a standard used for transferring patient data electronically across different healthcare systems. Users can create and fetch patient information using both GraphQL and REST endpoints, providing flexibility in how data is queried and retrieved.
+The application is secured with username/password authentication for login and JWT (JSON Web Tokens) for authorization, ensuring that only authenticated users can access sensitive patient information. It includes support for multiple patient identifier types such as Medical Record Numbers (MRN), Social Security Numbers (SSN), and Account Numbers, making it suitable for real-world healthcare integration scenarios. The service is fully containerized using Docker with MySQL database, making it easy to deploy and run in any environment
+
+Create and search patient records
+Authentication - User signup/login with JWT token security
+RESTful API - Traditional REST endpoints for patient operations
+GraphQL API - Modern GraphQL queries for more flexible data fetching:
+Search by identifier, gender, first/last name
+Returns FHIR-compliant JSON resources
 
 ## Quick Start
 
