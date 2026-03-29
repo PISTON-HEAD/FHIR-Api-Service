@@ -10,7 +10,7 @@ body:
       value: |
         ## Patient Search Request
         Fill out the form below to search for patient records. The system will automatically query the FHIR API and return results.
-        
+        For testing purpose, you can just choose the gender as Male and it will fetch all the male patients in the Database.
         **Note:** All fields are optional. Provide as many details as possible for accurate results.
 
   - type: input
